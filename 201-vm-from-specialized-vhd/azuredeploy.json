@@ -2,16 +2,34 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "location": {
+    "userImageStorageAccountName": {
       "type": "string",
       "metadata": {
-        "description": "Location to create the VM in"
+        "description": "mpogvmimages"
       }
     },
     "osDiskVhdUri": {
       "type": "string",
       "metadata": {
-        "description": "Uri of the existing VHD"
+        "description": "https://mpogvmimages.blob.core.windows.net/vm-images/Cent-OS.vhd"
+      }
+    },
+    "dnsLabelPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "centos-mpog"
+      }
+    },
+    "adminUserName": {
+      "type": "string",
+      "metadata": {
+        "description": "mpog"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "1qazXSW@"
       }
     },
     "osType": {
@@ -21,41 +39,49 @@
         "Linux"
       ],
       "metadata": {
-        "description": "Type of OS on the existing vhd"
+        "description": "This is the OS that your VM will be running"
       }
     },
     "vmSize": {
       "type": "string",
-      "defaultValue": "Standard_D2",
       "metadata": {
-        "description": "Size of the VM"
-      }
-    },
-    "vmName": {
-      "type": "string",
-      "metadata": {
-        "description": "Name of the VM"
+        "description": "This is the size of your VM"
       }
     }
   },
   "variables": {
-    "api-version": "2015-06-15",
+    "location": "[resourceGroup().location]",
+    "publicIPAddressName": "userImagePublicIP",
+    "vmName": "CentOS-Base",
+    "virtualNetworkName": "MPOG-Brasil",
+    "nicName": "CentOS",
     "addressPrefix": "10.0.0.0/16",
-    "subnetName": "Subnet",
-    "subnetPrefix": "10.0.0.0/24",
-    "publicIPAddressName": "specializedVMPublicIP",
+    "subnet1Name": "Subnet-1",
+    "subnet1Prefix": "10.0.0.0/24",
     "publicIPAddressType": "Dynamic",
-    "virtualNetworkName": "specializedVMVNET",
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
-    "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]",
-    "nicName": "specializedVMNic"
+    "subnet1Ref": "[concat(variables('vnetID'),'/subnets/',variables('subnet1Name'))]",
+    "osDiskVhdName": "[concat('http://',parameters('userImageStorageAccountName'),'.blob.core.windows.net/vhds/',variables('vmName'),'osDisk.vhd')]",
+    "apiVersion": "2015-06-15"
   },
   "resources": [
     {
-      "apiVersion": "[variables('api-version')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIPAddressType')]",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('dnsLabelPrefix')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "[variables('apiVersion')]",
       "type": "Microsoft.Network/virtualNetworks",
       "name": "[variables('virtualNetworkName')]",
-      "location": "[parameters('location')]",
+      "location": "[variables('location')]",
       "properties": {
         "addressSpace": {
           "addressPrefixes": [
@@ -64,19 +90,19 @@
         },
         "subnets": [
           {
-            "name": "[variables('subnetName')]",
+            "name": "[variables('subnet1Name')]",
             "properties": {
-              "addressPrefix": "[variables('subnetPrefix')]"
+              "addressPrefix": "[variables('subnet1Prefix')]"
             }
           }
         ]
       }
     },
     {
-      "apiVersion": "[variables('api-version')]",
+      "apiVersion": "[variables('apiVersion')]",
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('nicName')]",
-      "location": "[parameters('location')]",
+      "location": "[variables('location')]",
       "dependsOn": [
         "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]",
         "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
@@ -91,7 +117,7 @@
                 "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]"
               },
               "subnet": {
-                "id": "[variables('subnetRef')]"
+                "id": "[variables('subnet1Ref')]"
               }
             }
           }
@@ -99,19 +125,10 @@
       }
     },
     {
-      "apiVersion": "[variables('api-version')]",
-      "type": "Microsoft.Network/publicIPAddresses",
-      "name": "[variables('publicIPAddressName')]",
-      "location": "[parameters('location')]",
-      "properties": {
-        "publicIPAllocationMethod": "[variables('publicIPAddressType')]"
-      }
-    },
-    {
-      "apiVersion": "[variables('api-version')]",
+      "apiVersion": "[variables('apiVersion')]",
       "type": "Microsoft.Compute/virtualMachines",
-      "name": "[parameters('vmName')]",
-      "location": "[parameters('location')]",
+      "name": "[variables('vmName')]",
+      "location": "[variables('location')]",
       "dependsOn": [
         "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
       ],
@@ -119,23 +136,37 @@
         "hardwareProfile": {
           "vmSize": "[parameters('vmSize')]"
         },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
         "storageProfile": {
           "osDisk": {
-            "name": "[concat(parameters('vmName'),'-osDisk')]",
+            "name": "[concat(variables('vmName'),'-osDisk')]",
             "osType": "[parameters('osType')]",
             "caching": "ReadWrite",
-            "vhd": {
+            "createOption": "FromImage",
+            "image": {
               "uri": "[parameters('osDiskVhdUri')]"
             },
-            "createOption": "Attach"
+            "vhd": {
+              "uri": "[variables('osDiskVhdName')]"
+            }
           }
         },
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]"
             }
           ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat('http://',parameters('userImageStorageAccountName'),'.blob.core.windows.net')]"
+          }
         }
       }
     }
