@@ -2,17 +2,14 @@
   "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "osDiskVhdUri": {
-      "value": "existing-vhd"
-    },
     "osType": {
       "value": "Windows or Linux"
     },
     "location": {
-      "value": "West US"
+      "value": "Brazil South"
     },
     "vmSize": {
-      "value": "Standard_A2"
+      "value": "Standard_A1"
     },
     "vmName": {
       "value": "vm-name"
