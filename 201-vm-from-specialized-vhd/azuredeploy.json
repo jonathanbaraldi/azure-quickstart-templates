@@ -56,7 +56,7 @@
     "virtualNetworkName": "MPOG-Brasil",
     "nicName": "CentOS",
     "addressPrefix": "10.0.0.0/16",
-    "subnet1Name": "Subnet-1",
+    "subnet1Name": "default",
     "subnet1Prefix": "10.0.0.0/24",
     "publicIPAddressType": "Dynamic",
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
